@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineWave - Premium Movie Ticket Booking</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#fff1f2',
+                            100: '#ffe4e6',
+                            500: '#e11d48',
+                            600: '#e11d48',
+                            700: '#be123c',
+                            900: '#881337',
+                        },
+                        darkbg: '#0f172a',
+                        cardbg: '#1e293b'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Font & Font Awesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QR Code Generator Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #f3f4f6;
+        }
+        
+        /* Perspective screen effect */
+        .screen-curve {
+            height: 18px;
+            width: 80%;
+            margin: 0 auto 30px auto;
+            border-top: 4px solid #e11d48;
+            border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+            box-shadow: 0 -10px 25px rgba(225, 29, 72, 0.5);
+            background: linear-gradient(to bottom, rgba(225,29,72,0.15), transparent);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #e11d48;
+        }
+
+        .seat {
+            transition: all 0.2s ease-in-out;
+        }
+        .seat:not(.occupied):not(.selected):hover {
+            transform: scale(1.15);
+            cursor: pointer;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Ticket edge effect */
+        .ticket-stub-left {
+            border-right: 2px dashed #334155;
+            position: relative;
+        }
+        .ticket-stub-left::before, .ticket-stub-left::after {
+            content: '';
+            position: absolute;
+            right: -10px;
+            width: 20px;
+            height: 20px;
+            background-color: #0b0f19;
+            border-radius: 50%;
+        }
+        .ticket-stub-left::before { top: -10px; }
+        .ticket-stub-left::after { bottom: -10px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-brand-500 selection:text-white">
+
+    <!-- NAVIGATION BAR -->
+    <header class="sticky top-0 z-40 w-full glass-panel border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <!-- Brand Logo -->
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="navigateTo('movies')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-rose-400 flex items-center justify-center shadow-lg shadow-brand-500/30">
+                    <i class="fa-solid font-bold fa-ticket text-white text-xl rotate-12"></i>
+                </div>
+                <span class="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-brand-500 bg-clip-text text-transparent">
+                    CineWave
+                </span>
+            </div>
+
+            <!-- Location Selector & Nav Links -->
+            <div class="hidden md:flex items-center space-x-6">
+                <!-- Location Picker -->
+                <div class="flex items-center space-x-2 text-sm text-slate-300 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700">
+                    <i class="fa-solid fa-location-dot text-brand-500"></i>
+                    <select id="locationSelect" class="bg-transparent focus:outline-none text-slate-200 cursor-pointer font-medium">
+                        <option value="New York" class="bg-slate-900">New York, USA</option>
+                        <option value="Los Angeles" class="bg-slate-900">Los Angeles, USA</option>
+                        <option value="London" class="bg-slate-900">London, UK</option>
+                        <option value="Tokyo" class="bg-slate-900">Tokyo, Japan</option>
+                        <option value="Mumbai" class="bg-slate-900">Mumbai, India</option>
+                    </select>
+                </div>
+
+                <button onclick="navigateTo('movies')" class="nav-link text-slate-300 hover:text-white font-medium text-sm transition">
+                    Now Showing
+                </button>
+                <button onclick="navigateTo('bookings')" class="nav-link text-slate-300 hover:text-white font-medium text-sm transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-receipt text-slate-400"></i>
+                    <span>My Bookings</span>
+                    <span id="bookingBadge" class="hidden bg-brand-500 text-white text-xs px-2 py-0.5 rounded-full">0</span>
+                </button>
+            </div>
+
+            <!-- User Profile / Quick Actions -->
+            <div class="flex items-center space-x-3">
+                <button id="searchToggleBtn" onclick="toggleMobileSearch()" class="p-2 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800 transition md:hidden">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+                <div class="flex items-center space-x-3 pl-3 border-l border-slate-800">
+                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" alt="User Avatar" class="w-9 h-9 rounded-full object-cover border-2 border-brand-500/50">
+                    <span class="hidden lg:inline text-sm font-medium text-slate-200">Alex Morgan</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- NOTIFICATION TOAST CONTAINER -->
+    <div id="toastContainer" class="fixed top-20 right-5 z-50 flex flex-col space-y-3 pointer-events-none"></div>
+
+    <!-- MAIN APP CONTAINER -->
+    <main id="mainContainer" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+
+        <!-- ================= PAGE 1: MOVIE SELECTION & CATALOG ================= -->
+        <section id="moviesPage" class="space-y-8">
+            <!-- Hero Carousel / Highlight Banner -->
+            <div class="relative rounded-3xl overflow-hidden shadow-2xl border border-slate-800 bg-gradient-to-r from-slate-900 to-slate-800">
+                <div class="absolute inset-0 bg-cover bg-center opacity-30 mix-blend-overlay filter blur-sm" style="background-image: url('https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1200&q=80');"></div>
+                <div class="relative z-10 p-8 sm:p-12 max-w-2xl space-y-4">
+                    <span class="px-3 py-1 bg-brand-500/20 text-brand-400 border border-brand-500/30 text-xs font-semibold rounded-full uppercase tracking-wider">
+                        FEATURED BLOCKBUSTER
+                    </span>
+                    <h1 class="text-3xl sm:text-5xl font-black text-white leading-tight">
+                        Dune: Part Two
+                    </h1>
+                    <p class="text-slate-300 text-sm sm:text-base line-clamp-3">
+                        Paul Atreides unites with Chani and the Fremen while seeking revenge against the conspirators who destroyed his family. Facing a choice between the love of his life and the fate of the universe.
+                    </p>
+                    <div class="flex items-center space-x-4 pt-2">
+                        <button onclick="selectMovie(1)" class="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl shadow-lg shadow-brand-600/40 transition flex items-center space-x-2">
+                            <i class="fa-solid fa-ticket"></i>
+                            <span>Book Tickets Now</span>
+                        </button>
+                        <span class="text-xs text-slate-400 flex items-center space-x-1">
+                            <i class="fa-solid fa-star text-amber-400"></i>
+                            <span class="font-bold text-white text-sm">8.6</span> / 10
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters and Search Bar -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/80 p-4 rounded-2xl border border-slate-800">
+                <!-- Search Input -->
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="text" id="searchInput" onkeyup="filterMovies()" placeholder="Search movies by title or actor..." class="w-full pl-10 pr-4 py-2.5 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm rounded-xl border border-slate-700 focus:outline-none focus:border-brand-500 transition">
+                </div>
+
+                <!-- Genre Pill Filters -->
+                <div class="flex items-center space-x-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
+                    <button onclick="setGenre('All')" class="genre-btn active text-xs font-medium px-4 py-2 rounded-xl border transition border-brand-500 bg-brand-600 text-white">All</button>
+                    <button onclick="setGenre('Action')" class="genre-btn text-xs font-medium px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Action</button>
+                    <button onclick="setGenre('Sci-Fi')" class="genre-btn text-xs font-medium px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Sci-Fi</button>
+                    <button onclick="setGenre('Animation')" class="genre-btn text-xs font-medium px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Animation</button>
+                    <button onclick="setGenre('Drama')" class="genre-btn text-xs font-medium px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Drama</button>
+                    <button onclick="setGenre('Horror')" class="genre-btn text-xs font-medium px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Horror</button>
+                </div>
+            </div>
+
+            <!-- Movie Grid Header -->
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-film text-brand-500"></i>
+                    <span>Now Showing in Theatres</span>
+                </h2>
+                <span id="movieCountText" class="text-xs text-slate-400">Showing all movies</span>
+            </div>
+
+            <!-- Movies Grid Container -->
+            <div id="movieGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- Injected via JavaScript -->
+            </div>
+        </section>
+
+
+        <!-- ================= PAGE 2: SHOWTIME & SEAT SELECTION ================= -->
+        <section id="seatBookingPage" class="hidden space-y-6">
+            <!-- Back Button & Movie Header -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <button onclick="navigateTo('movies')" class="inline-flex items-center space-x-2 text-slate-400 hover:text-white transition text-sm font-medium">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Back to Movies</span>
+                </button>
+                <div id="selectedMovieMiniInfo" class="flex items-center space-x-4">
+                    <!-- Dynamic mini info -->
+                </div>
+            </div>
+
+            <!-- Step 1: Select Date & Showtime Bar -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h3 class="text-sm uppercase tracking-wider text-slate-400 font-semibold">1. Select Date & Show Time</h3>
+                        <p class="text-xs text-slate-500">Choose your preferred screening schedule</p>
+                    </div>
+                    <!-- Cinema Format Badges -->
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs font-semibold px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">IMAX 3D</span>
+                        <span class="text-xs font-semibold px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">Dolby Atmos</span>
+                        <span class="text-xs font-semibold px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">4DX</span>
+                    </div>
+                </div>
+
+                <!-- Date Selector Buttons -->
+                <div id="dateSelector" class="flex items-center space-x-3 overflow-x-auto pb-2 no-scrollbar">
+                    <!-- Dynamic date options populated in JS -->
+                </div>
+
+                <!-- Showtimes List -->
+                <div id="showtimeSelector" class="flex flex-wrap gap-3 pt-2">
+                    <!-- Dynamic showtimes populated in JS -->
+                </div>
+            </div>
+
+            <!-- Step 2: Interactive Cinema Seating Chart -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                
+                <!-- Seat Map Area -->
+                <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col items-center relative overflow-x-auto">
+                    <!-- Curved Screen -->
+                    <div class="w-full text-center mb-8">
+                        <div class="screen-curve"></div>
+                        <span class="text-xs tracking-widest text-slate-400 font-semibold uppercase">SCREEN THIS WAY</span>
+                    </div>
+
+                    <!-- Seat Matrix -->
+                    <div id="seatGrid" class="flex flex-col space-y-3 mb-8 min-w-[320px]">
+                        <!-- Rendered by JS -->
+                    </div>
+
+                    <!-- Seat Legend -->
+                    <div class="flex flex-wrap justify-center items-center gap-6 pt-6 border-t border-slate-800/80 w-full text-xs text-slate-300">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-5 h-5 rounded bg-slate-800 border border-slate-600"></div>
+                            <span>Available</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-5 h-5 rounded bg-brand-600 border border-brand-400"></div>
+                            <span>Selected</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-5 h-5 rounded bg-slate-700 opacity-40 cursor-not-allowed"></div>
+                            <span>Occupied</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-5 h-5 rounded bg-amber-500/20 border border-amber-500 text-amber-400 flex items-center justify-center text-[10px]"><i class="fa-solid fa-crown"></i></div>
+                            <span>VIP ($18)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Booking Summary & Add-ons Sidebar -->
+                <div class="space-y-6">
+                    <!-- Seat & Price Summary Card -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+                        <h3 class="text-base font-bold text-white border-b border-slate-800 pb-3 flex items-center justify-between">
+                            <span>Booking Overview</span>
+                            <span class="text-xs font-normal text-brand-400 bg-brand-500/10 px-2 py-0.5 rounded border border-brand-500/20" id="summaryShowtime">Select Show</span>
+                        </h3>
+
+                        <div class="space-y-3 text-sm">
+                            <div class="flex justify-between text-slate-300">
+                                <span>Selected Seats:</span>
+                                <span id="summarySeats" class="font-semibold text-white">None</span>
+                            </div>
+                            <div class="flex justify-between text-slate-300">
+                                <span>Ticket Price Subtotal:</span>
+                                <span id="summaryTicketPrice" class="font-semibold text-white">$0.00</span>
+                            </div>
+                            <div class="flex justify-between text-slate-300">
+                                <span>Convenience Fee:</span>
+                                <span id="summaryFee" class="font-semibold text-white">$0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- F&B Snack Add-ons Section -->
+                        <div class="pt-4 border-t border-slate-800 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-xs uppercase font-bold text-slate-400 tracking-wider">Combos & Snacks</h4>
+                                <span class="text-[11px] text-brand-400">Save 15% pre-booking</span>
+                            </div>
+
+                            <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                <!-- Snack 1 -->
+                                <div class="flex items-center justify-between p-2 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                                    <div class="flex items-center space-x-2.5">
+                                        <span class="text-xl">🍿</span>
+                                        <div>
+                                            <div class="text-xs font-medium text-white">Large Popcorn</div>
+                                            <div class="text-[10px] text-slate-400">$7.50</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <button onclick="updateSnack('popcorn', -1)" class="w-6 h-6 rounded-md bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center text-xs font-bold">-</button>
+                                        <span id="snack-popcorn-qty" class="text-xs font-bold text-white w-4 text-center">0</span>
+                                        <button onclick="updateSnack('popcorn', 1)" class="w-6 h-6 rounded-md bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center text-xs font-bold">+</button>
+                                    </div>
+                                </div>
+
+                                <!-- Snack 2 -->
+                                <div class="flex items-center justify-between p-2 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                                    <div class="flex items-center space-x-2.5">
+                                        <span class="text-xl">🥤</span>
+                                        <div>
+                                            <div class="text-xs font-medium text-white">Fountain Soda</div>
+                                            <div class="text-[10px] text-slate-400">$4.50</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <button onclick="updateSnack('soda', -1)" class="w-6 h-6 rounded-md bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center text-xs font-bold">-</button>
+                                        <span id="snack-soda-qty" class="text-xs font-bold text-white w-4 text-center">0</span>
+                                        <button onclick="updateSnack('soda', 1)" class="w-6 h-6 rounded-md bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center text-xs font-bold">+</button>
+                                    </div>
+                                </div>
+
+                                <!-- Snack 3 -->
+                                <div class="flex items-center justify-between p-2 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                                    <div class="flex items-center space-x-2.5">
+                                        <span class="text-xl">🎬</span>
+                                        <div>
+                                            <div class="text-xs font-medium text-white">Ultimate Couple Combo</div>
+                                            <div class="text-[10px] text-slate-400">$15.00</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <button onclick="updateSnack('combo', -1)" class="w-6 h-6 rounded-md bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center text-xs font-bold">-</button>
+                                        <span id="snack-combo-qty" class="text-xs font-bold text-white w-4 text-center">0</span>
+                                        <button onclick="updateSnack('combo', 1)" class="w-6 h-6 rounded-md bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center text-xs font-bold">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Grand Total Bar -->
+                        <div class="pt-4 border-t border-slate-800 flex items-center justify-between">
+                            <div>
+                                <div class="text-xs text-slate-400">Total Payable Amount</div>
+                                <div id="summaryGrandTotal" class="text-2xl font-black text-brand-500">$0.00</div>
+                            </div>
+                            <button id="proceedToCheckoutBtn" disabled onclick="openCheckoutModal()" class="px-6 py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg transition">
+                                Checkout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ================= PAGE 3: USER BOOKINGS DASHBOARD ================= -->
+        <section id="bookingsPage" class="hidden space-y-6">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div>
+                    <h2 class="text-2xl font-black text-white">My Movie Tickets</h2>
+                    <p class="text-xs text-slate-400">View and manage your current and past ticket reservations</p>
+                </div>
+                <button onclick="navigateTo('movies')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-medium transition">
+                    + Book New Movie
+                </button>
+            </div>
+
+            <!-- Bookings List Container -->
+            <div id="myBookingsContainer" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Dynamically populated or empty state -->
+            </div>
+        </section>
+
+    </main>
+
+
+    <!-- ================= MODAL: PAYMENT & CHECKOUT ================= -->
+    <div id="checkoutModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm hidden p-4 overflow-y-auto">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 sm:p-8 space-y-6 shadow-2xl relative my-8">
+            <!-- Close Button -->
+            <button onclick="closeCheckoutModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="space-y-1">
+                <h3 class="text-xl font-bold text-white">Checkout & Payment</h3>
+                <p class="text-xs text-slate-400">Complete payment to finalize your booking confirmation</p>
+            </div>
+
+            <!-- Discount / Promo Code Input -->
+            <div class="bg-slate-800/70 p-3 rounded-2xl border border-slate-700/60 flex items-center space-x-2">
+                <i class="fa-solid fa-tag text-brand-500 pl-2"></i>
+                <input type="text" id="promoCodeInput" placeholder="Promo Code (Try CINE20)" class="bg-transparent text-xs text-white placeholder-slate-400 focus:outline-none flex-1 uppercase font-semibold">
+                <button onclick="applyPromo()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-semibold transition">
+                    Apply
+                </button>
+            </div>
+
+            <!-- Payment Method Tabs -->
+            <div class="space-y-3">
+                <label class="text-xs uppercase font-semibold text-slate-400">Select Payment Method</label>
+                <div class="grid grid-cols-3 gap-3">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="paymentType" value="card" checked class="peer hidden" onchange="togglePaymentFields('card')">
+                        <div class="p-3 text-center rounded-xl border border-slate-700 bg-slate-800 peer-checked:border-brand-500 peer-checked:bg-brand-500/10 text-slate-300 peer-checked:text-brand-400 transition">
+                            <i class="fa-solid fa-credit-card text-lg block mb-1"></i>
+                            <span class="text-[11px] font-semibold">Card</span>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="paymentType" value="upi" class="peer hidden" onchange="togglePaymentFields('upi')">
+                        <div class="p-3 text-center rounded-xl border border-slate-700 bg-slate-800 peer-checked:border-brand-500 peer-checked:bg-brand-500/10 text-slate-300 peer-checked:text-brand-400 transition">
+                            <i class="fa-solid fa-mobile-screen text-lg block mb-1"></i>
+                            <span class="text-[11px] font-semibold">UPI / Wallet</span>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="paymentType" value="apple" class="peer hidden" onchange="togglePaymentFields('apple')">
+                        <div class="p-3 text-center rounded-xl border border-slate-700 bg-slate-800 peer-checked:border-brand-500 peer-checked:bg-brand-500/10 text-slate-300 peer-checked:text-brand-400 transition">
+                            <i class="fa-brands fa-apple text-lg block mb-1"></i>
+                            <span class="text-[11px] font-semibold">Apple Pay</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Credit Card Form Fields -->
+            <div id="cardFields" class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-400 mb-1">Cardholder Name</label>
+                    <input type="text" id="cardName" value="Alex Morgan" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-brand-500">
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1">Card Number</label>
+                    <input type="text" id="cardNumber" placeholder="4532 •••• •••• 8921" maxlength="19" value="4532 8921 3410 8921" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-brand-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 mb-1">Expiry Date</label>
+                        <input type="text" id="cardExpiry" placeholder="MM/YY" value="08/28" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">CVV</label>
+                        <input type="password" id="cardCVV" placeholder="•••" maxlength="4" value="882" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-brand-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- UPI Form Fields -->
+            <div id="upiFields" class="hidden space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-400 mb-1">Virtual Payment Address (VPA / UPI ID)</label>
+                    <input type="text" placeholder="alexmorgan@okicici" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-brand-500">
+                </div>
+                <p class="text-[11px] text-slate-500">A payment request will be sent to your UPI app for authorization.</p>
+            </div>
+
+            <!-- Apple Pay Notice -->
+            <div id="appleFields" class="hidden text-center py-4 text-xs text-slate-400">
+                <i class="fa-brands fa-apple text-3xl text-white mb-2 block"></i>
+                <span>Double click side button to complete purchase with Apple Pay.</span>
+            </div>
+
+            <!-- Final Breakdown -->
+            <div class="pt-4 border-t border-slate-800 space-y-2 text-xs">
+                <div class="flex justify-between text-slate-400">
+                    <span>Base Amount</span>
+                    <span id="modalBasePrice">$0.00</span>
+                </div>
+                <div id="promoRow" class="flex justify-between text-emerald-400 hidden">
+                    <span>Discount (20% OFF)</span>
+                    <span id="promoAmount">-$0.00</span>
+                </div>
+                <div class="flex justify-between text-white font-bold text-base pt-2 border-t border-slate-800">
+                    <span>Total Payment</span>
+                    <span id="modalFinalPrice" class="text-brand-500">$0.00</span>
+                </div>
+            </div>
+
+            <!-- Submit Payment Button -->
+            <button onclick="processPayment()" class="w-full py-3.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg shadow-brand-600/30 transition flex items-center justify-center space-x-2 text-sm">
+                <i class="fa-solid fa-lock"></i>
+                <span>Pay & Confirm Booking</span>
+            </button>
+        </div>
+    </div>
+
+
+    <!-- ================= MODAL: MOVIE DETAILS TRAILER ================= -->
+    <div id="movieModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm hidden p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl relative my-8">
+            <button onclick="closeMovieModal()" class="absolute top-4 right-4 z-10 w-8 h-8 bg-slate-800/80 rounded-full text-slate-300 hover:text-white flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div id="movieModalContent">
+                <!-- Dynamically filled in JS -->
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ================= MODAL: DIGITAL TICKET VIEW ================= -->
+    <div id="ticketModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm hidden p-4 overflow-y-auto">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-6 shadow-2xl relative my-8">
+            <button onclick="closeTicketModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <div class="text-center space-y-1">
+                <span class="inline-block px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold rounded-full">
+                    <i class="fa-solid fa-circle-check mr-1"></i> BOOKING CONFIRMED
+                </span>
+                <h3 class="text-xl font-extrabold text-white">Digital Pass</h3>
+            </div>
+
+            <!-- Ticket Card Visual -->
+            <div id="ticketVisual" class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-xl">
+                <!-- Header -->
+                <div id="ticketHeaderBg" class="p-4 bg-gradient-to-r from-brand-700 to-rose-600 text-white flex items-center justify-between">
+                    <div>
+                        <h4 id="ticketMovieTitle" class="font-black text-lg line-clamp-1">Movie Title</h4>
+                        <p id="ticketFormat" class="text-xs text-rose-200">IMAX 3D • Dolby Atmos</p>
+                    </div>
+                    <div class="text-right">
+                        <span id="ticketBookingRef" class="text-xs font-mono font-bold bg-black/30 px-2 py-1 rounded">#CW-9821</span>
+                    </div>
+                </div>
+
+                <!-- Ticket Details -->
+                <div class="p-5 space-y-4 text-xs text-slate-300 ticket-stub-left">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase">Cinema Location</span>
+                            <span id="ticketCinema" class="font-semibold text-white">CineWave IMAX, NYC</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase">Date & Time</span>
+                            <span id="ticketDateTime" class="font-semibold text-white">Today, 07:30 PM</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase">Seats</span>
+                            <span id="ticketSeats" class="font-bold text-brand-400 text-sm">F5, F6</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase">Snacks Included</span>
+                            <span id="ticketSnacks" class="font-semibold text-white">None</span>
+                        </div>
+                    </div>
+
+                    <!-- QR Code Render Area -->
+                    <div class="pt-2 flex flex-col items-center justify-center space-y-2 border-t border-slate-700/60">
+                        <div id="qrcode" class="p-2 bg-white rounded-xl shadow"></div>
+                        <span class="text-[10px] text-slate-400">Scan at entrance gate for admission</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center space-x-3">
+                <button onclick="printTicket()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-print"></i>
+                    <span>Print Ticket</span>
+                </button>
+                <button onclick="closeTicketModal()" class="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs rounded-xl transition">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- FOOTER -->
+    <footer class="mt-16 border-t border-slate-800 bg-slate-950 py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between text-xs text-slate-500 gap-4">
+            <div class="flex items-center space-x-2">
+                <div class="w-6 h-6 rounded bg-brand-600 flex items-center justify-center text-white font-bold text-xs">C</div>
+                <span class="text-slate-400 font-semibold">CineWave Entertainment Systems</span>
+            </div>
+            <div class="flex items-center space-x-6 text-slate-400">
+                <a href="#" class="hover:text-white transition">Privacy Policy</a>
+                <a href="#" class="hover:text-white transition">Terms of Service</a>
+                <a href="#" class="hover:text-white transition">Support & Help</a>
+            </div>
+            <div>
+                © 2026 CineWave Inc. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+
+    <!-- ================= APPLICATION JAVASCRIPT LOGIC ================= -->
+    <script>
+        /* --- MOVIE DATABASE (MOCK DATA) --- */
+        const MOVIES_DATA = [
+            {
+                id: 1,
+                title: "Dune: Part Two",
+                genre: "Sci-Fi",
+                rating: 8.6,
+                duration: "2h 46m",
+                pg: "PG-13",
+                poster: "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80",
+                banner: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1200&q=80",
+                description: "Paul Atreides unites with Chani and the Fremen while seeking revenge against the conspirators who destroyed his family.",
+                director: "Denis Villeneuve",
+                cast: "Timothée Chalamet, Zendaya, Rebecca Ferguson",
+                price: 15.00
+            },
+            {
+                id: 2,
+                title: "Oppenheimer",
+                genre: "Drama",
+                rating: 8.9,
+                duration: "3h 00m",
+                pg: "R",
+                poster: "https://images.unsplash.com/photo-1440404653325-ab127d49abc1?auto=format&fit=crop&w=600&q=80",
+                banner: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1200&q=80",
+                description: "The story of American scientist J. Robert Oppenheimer and his role in the development of the atomic bomb.",
+                director: "Christopher Nolan",
+                cast: "Cillian Murphy, Emily Blunt, Matt Damon",
+                price: 14.50
+            },
+            {
+                id: 3,
+                title: "Cyberpunk 2099",
+                genre: "Action",
+                rating: 7.8,
+                duration: "2h 15m",
+                pg: "PG-13",
+                poster: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=600&q=80",
+                banner: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80",
+                description: "In a neon-drenched dystopian metropolis, a mercenary rebel uncovers a corporate AI conspiracy threatening human freedom.",
+                director: "Sofia Lin",
+                cast: "Keanu Reeves, Ana de Armas",
+                price: 13.50
+            },
+            {
+                id: 4,
+                title: "Spirited Journey",
+                genre: "Animation",
+                rating: 9.1,
+                duration: "1h 50m",
+                pg: "G",
+                poster: "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80",
+                banner: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80",
+                description: "A whimsical animated voyage through a mystical forest realm of spirits and magical creatures.",
+                director: "Hayao Miyazaki",
+                cast: "Voice cast: Rumi Hiiragi, Miyu Irino",
+                price: 12.00
+            },
+            {
+                id: 5,
+                title: "The Silent Shadows",
+                genre: "Horror",
+                rating: 7.4,
+                duration: "1h 42m",
+                pg: "R",
+                poster: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80",
+                banner: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1200&q=80",
+                description: "An isolated family living in an ancient estate begins experiencing unexplained entity manifestations during an eclipse.",
+                director: "James Wan",
+                cast: "Patrick Wilson, Vera Farmiga",
+                price: 13.00
+            },
+            {
+                id: 6,
+                title: "Interstellar Odyssey",
+                genre: "Sci-Fi",
+                rating: 8.8,
+                duration: "2h 50m",
+                pg: "PG-13",
+                poster: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80",
+                banner: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80",
+                description: "A team of explorers travel through a wormhole in space in an attempt to ensure humanity's survival.",
+                director: "Christopher Nolan",
+                cast: "Matthew McConaughey, Anne Hathaway",
+                price: 16.00
+            }
+        ];
+
+        /* --- STATE MANAGEMENT --- */
+        let state = {
+            currentGenre: "All",
+            searchQuery: "",
+            selectedMovie: null,
+            selectedDate: null,
+            selectedShowtime: null,
+            selectedSeats: [], // Array of seat IDs like ['C4', 'C5']
+            snacks: {
+                popcorn: { name: "Large Popcorn", qty: 0, price: 7.50 },
+                soda: { name: "Fountain Soda", qty: 0, price: 4.50 },
+                combo: { name: "Couple Combo", qty: 0, price: 15.00 }
+            },
+            appliedDiscount: 0, // fraction, e.g. 0.20 for 20%
+            userBookings: []
+        };
+
+        // Occupied seats preset generator
+        const OCCUPIED_SEATS_PRESETS = ['A2', 'A3', 'C7', 'C8', 'D4', 'D5', 'E10', 'E11'];
+
+        /* --- INITIALIZATION & ROUTING --- */
+        window.onload = function() {
+            renderMovies();
+            setupDates();
+            loadBookingsFromStorage();
+            updateBookingBadge();
+        };
+
+        function navigateTo(pageId) {
+            document.getElementById('moviesPage').classList.add('hidden');
+            document.getElementById('seatBookingPage').classList.add('hidden');
+            document.getElementById('bookingsPage').classList.add('hidden');
+
+            if (pageId === 'movies') {
+                document.getElementById('moviesPage').classList.remove('hidden');
+            } else if (pageId === 'seats') {
+                document.getElementById('seatBookingPage').classList.remove('hidden');
+            } else if (pageId === 'bookings') {
+                renderUserBookings();
+                document.getElementById('bookingsPage').classList.remove('hidden');
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        /* --- RENDER MOVIES CATALOG --- */
+        function renderMovies() {
+            const grid = document.getElementById('movieGrid');
+            grid.innerHTML = "";
+
+            const filtered = MOVIES_DATA.filter(movie => {
+                const matchesGenre = state.currentGenre === "All" || movie.genre === state.currentGenre;
+                const matchesSearch = movie.title.toLowerCase().includes(state.searchQuery.toLowerCase()) || 
+                                      movie.cast.toLowerCase().includes(state.searchQuery.toLowerCase());
+                return matchesGenre && matchesSearch;
+            });
+
+            document.getElementById('movieCountText').innerText = `Showing ${filtered.length} movie(s)`;
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full py-12 text-center text-slate-500">
+                        <i class="fa-solid fa-film text-4xl mb-3 block"></i>
+                        <p class="text-sm">No movies found matching your criteria.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            filtered.forEach(movie => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden hover:border-slate-700 transition duration-300 flex flex-col justify-between group";
+                card.innerHTML = `
+                    <div>
+                        <!-- Movie Poster Header -->
+                        <div class="relative aspect-[2/3] overflow-hidden bg-slate-800">
+                            <img src="${movie.poster}" alt="${movie.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                            <div class="absolute top-3 right-3 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg text-xs font-bold text-amber-400 flex items-center space-x-1 border border-slate-700">
+                                <i class="fa-solid fa-star"></i>
+                                <span>${movie.rating}</span>
+                            </div>
+                            <div class="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-bold text-slate-300 border border-slate-700">
+                                ${movie.pg}
+                            </div>
+                            <button onclick="openMovieModal(${movie.id})" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                <span class="px-4 py-2 bg-white/20 backdrop-blur-md text-white rounded-full text-xs font-semibold border border-white/30">
+                                    <i class="fa-solid fa-circle-info mr-1"></i> Quick Info
+                                </span>
+                            </button>
+                        </div>
+
+                        <!-- Card Body -->
+                        <div class="p-5 space-y-2">
+                            <div class="flex items-center justify-between text-xs text-slate-400">
+                                <span>${movie.genre}</span>
+                                <span><i class="fa-regular fa-clock mr-1"></i>${movie.duration}</span>
+                            </div>
+                            <h3 class="font-bold text-lg text-white group-hover:text-brand-400 transition line-clamp-1">${movie.title}</h3>
+                            <p class="text-xs text-slate-400 line-clamp-2">${movie.description}</p>
+                        </div>
+                    </div>
+
+                    <!-- Card Footer -->
+                    <div class="p-5 pt-0 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] text-slate-500 block uppercase font-medium">Tickets From</span>
+                            <span class="text-lg font-extrabold text-white">$${movie.price.toFixed(2)}</span>
+                        </div>
+                        <button onclick="selectMovie(${movie.id})" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-brand-600/20 transition flex items-center space-x-1.5">
+                            <span>Book Now</span>
+                            <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        /* --- FILTERS & SEARCH --- */
+        function setGenre(genre) {
+            state.currentGenre = genre;
+            document.querySelectorAll('.genre-btn').forEach(btn => {
+                if (btn.innerText === genre) {
+                    btn.className = "genre-btn active text-xs font-medium px-4 py-2 rounded-xl border transition border-brand-500 bg-brand-600 text-white";
+                } else {
+                    btn.className = "genre-btn text-xs font-medium px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition";
+                }
+            });
+            renderMovies();
+        }
+
+        function filterMovies() {
+            state.searchQuery = document.getElementById('searchInput').value;
+            renderMovies();
+        }
+
+        /* --- SELECT MOVIE & INITIALIZE BOOKING WORKFLOW --- */
+        function selectMovie(movieId) {
+            const movie = MOVIES_DATA.find(m => m.id === movieId);
+            if (!movie) return;
+
+            state.selectedMovie = movie;
+            state.selectedSeats = [];
+            resetSnacks();
+
+            // Render mini info
+            document.getElementById('selectedMovieMiniInfo').innerHTML = `
+                <img src="${movie.poster}" alt="${movie.title}" class="w-12 h-16 rounded-lg object-cover border border-slate-700">
+                <div>
+                    <h3 class="font-bold text-white text-base">${movie.title}</h3>
+                    <p class="text-xs text-slate-400">${movie.genre} • ${movie.duration} • $${movie.price.toFixed(2)} Base</p>
+                </div>
+            `;
+
+            setupShowtimes();
+            renderSeats();
+            updateSummary();
+            navigateTo('seats');
+        }
+
+        /* Setup Date Options (Today, Tomorrow, Next 5 Days) */
+        function setupDates() {
+            const container = document.getElementById('dateSelector');
+            container.innerHTML = "";
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            const today = new Date();
+            for (let i = 0; i < 6; i++) {
+                const dateObj = new Date(today);
+                dateObj.setDate(today.getDate() + i);
+
+                const dayName = i === 0 ? 'Today' : days[dateObj.getDay()];
+                const dateNum = dateObj.getDate();
+                const monthName = months[dateObj.getMonth()];
+                const fullDateStr = `${dayName}, ${monthName} ${dateNum}`;
+
+                if (i === 0) state.selectedDate = fullDateStr;
+
+                const dateBtn = document.createElement('button');
+                dateBtn.className = `date-btn flex-shrink-0 px-4 py-2.5 rounded-xl border text-center transition ${i === 0 ? 'bg-brand-600 border-brand-500 text-white font-bold' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`;
+                dateBtn.onclick = () => {
+                    document.querySelectorAll('.date-btn').forEach(b => {
+                        b.className = "date-btn flex-shrink-0 px-4 py-2.5 rounded-xl border text-center transition bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700";
+                    });
+                    dateBtn.className = "date-btn flex-shrink-0 px-4 py-2.5 rounded-xl border text-center transition bg-brand-600 border-brand-500 text-white font-bold";
+                    state.selectedDate = fullDateStr;
+                    updateSummary();
+                };
+
+                dateBtn.innerHTML = `
+                    <span class="text-[10px] block uppercase text-slate-300">${dayName}</span>
+                    <span class="text-sm font-bold block">${dateNum} ${monthName}</span>
+                `;
+                container.appendChild(dateBtn);
+            }
+        }
+
+        /* Setup Showtime Options */
+        function setupShowtimes() {
+            const container = document.getElementById('showtimeSelector');
+            container.innerHTML = "";
+            const times = ["10:30 AM", "01:45 PM", "04:30 PM", "07:30 PM", "10:15 PM"];
+
+            state.selectedShowtime = times[3]; // Default 07:30 PM
+
+            times.forEach(time => {
+                const timeBtn = document.createElement('button');
+                const isSelected = time === state.selectedShowtime;
+                timeBtn.className = `showtime-btn px-4 py-2 rounded-xl border text-xs font-semibold transition ${isSelected ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`;
+                timeBtn.onclick = () => {
+                    document.querySelectorAll('.showtime-btn').forEach(b => {
+                        b.className = "showtime-btn px-4 py-2 rounded-xl border text-xs font-semibold transition bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700";
+                    });
+                    timeBtn.className = "showtime-btn px-4 py-2 rounded-xl border text-xs font-semibold transition bg-brand-600 border-brand-500 text-white";
+                    state.selectedShowtime = time;
+                    updateSummary();
+                };
+                timeBtn.innerText = time;
+                container.appendChild(timeBtn);
+            });
+        }
+
+        /* --- RENDER SEATING MAP (ROWS A-F, COLS 1-10) --- */
+        function renderSeats() {
+            const grid = document.getElementById('seatGrid');
+            grid.innerHTML = "";
+
+            const rows = ['A', 'B', 'C', 'D', 'E', 'F'];
+            const cols = 10;
+
+            rows.forEach(rowLetter => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = "flex items-center space-x-2";
+
+                // Row Label Left
+                const labelLeft = document.createElement('span');
+                labelLeft.className = "w-5 text-xs font-bold text-slate-500 text-center";
+                labelLeft.innerText = rowLetter;
+                rowDiv.appendChild(labelLeft);
+
+                // Seats Row Inner Container
+                const seatsContainer = document.createElement('div');
+                seatsContainer.className = "flex space-x-2";
+
+                for (let c = 1; c <= cols; c++) {
+                    const seatId = `${rowLetter}${c}`;
+                    const isVIP = rowLetter === 'E' || rowLetter === 'F'; // Rear rows VIP
+                    const isOccupied = OCCUPIED_SEATS_PRESETS.includes(seatId);
+                    const isSelected = state.selectedSeats.includes(seatId);
+
+                    const seatBtn = document.createElement('button');
+                    seatBtn.id = `seat-${seatId}`;
+
+                    let baseClasses = "seat w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-[10px] font-bold flex items-center justify-center transition shadow-sm ";
+                    
+                    if (isOccupied) {
+                        baseClasses += "bg-slate-800 text-slate-600 border border-slate-700/50 cursor-not-allowed opacity-40 occupied";
+                        seatBtn.disabled = true;
+                    } else if (isSelected) {
+                        baseClasses += "bg-brand-600 text-white border border-brand-400 ring-2 ring-brand-500/50 selected";
+                    } else if (isVIP) {
+                        baseClasses += "bg-amber-500/10 text-amber-400 border border-amber-500/40 hover:bg-amber-500/20";
+                    } else {
+                        baseClasses += "bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 hover:border-slate-500";
+                    }
+
+                    // Aisle Space after seat 3 & 7
+                    if (c === 4 || c === 8) {
+                        seatBtn.classList.add("ml-3");
+                    }
+
+                    seatBtn.className = baseClasses;
+                    seatBtn.innerText = c;
+                    seatBtn.title = `Seat ${seatId} (${isVIP ? 'VIP Tier' : 'Standard'})`;
+
+                    if (!isOccupied) {
+                        seatBtn.onclick = () => toggleSeatSelection(seatId);
+                    }
+
+                    seatsContainer.appendChild(seatBtn);
+                }
+
+                rowDiv.appendChild(seatsContainer);
+
+                // Row Label Right
+                const labelRight = document.createElement('span');
+                labelRight.className = "w-5 text-xs font-bold text-slate-500 text-center";
+                labelRight.innerText = rowLetter;
+                rowDiv.appendChild(labelRight);
+
+                grid.appendChild(rowDiv);
+            });
+        }
+
+        /* Toggle Seat Click Logic */
+        function toggleSeatSelection(seatId) {
+            const index = state.selectedSeats.indexOf(seatId);
+            if (index > -1) {
+                state.selectedSeats.splice(index, 1);
+            } else {
+                if (state.selectedSeats.length >= 8) {
+                    showToast("Maximum limit of 8 seats per transaction reached.", "warning");
+                    return;
+                }
+                state.selectedSeats.push(seatId);
+            }
+
+            renderSeats();
+            updateSummary();
+        }
+
+        /* --- SNACK QUANTITY MANAGEMENT --- */
+        function updateSnack(key, delta) {
+            if (state.snacks[key]) {
+                const newQty = state.snacks[key].qty + delta;
+                if (newQty >= 0 && newQty <= 10) {
+                    state.snacks[key].qty = newQty;
+                    document.getElementById(`snack-${key}-qty`).innerText = newQty;
+                    updateSummary();
+                }
+            }
+        }
+
+        function resetSnacks() {
+            for (let key in state.snacks) {
+                state.snacks[key].qty = 0;
+                const el = document.getElementById(`snack-${key}-qty`);
+                if (el) el.innerText = "0";
+            }
+        }
+
+        /* --- UPDATE BOOKING SUMMARY & CALCULATIONS --- */
+        function updateSummary() {
+            if (!state.selectedMovie) return;
+
+            // Selected Seats String
+            const seatText = state.selectedSeats.length > 0 ? state.selectedSeats.join(', ') : 'None';
+            document.getElementById('summarySeats').innerText = seatText;
+            document.getElementById('summaryShowtime').innerText = `${state.selectedDate || 'Today'} @ ${state.selectedShowtime}`;
+
+            // Calculate Ticket Subtotal (VIP rows E & F cost +$3.00)
+            let ticketSubtotal = 0;
+            state.selectedSeats.forEach(seatId => {
+                const row = seatId.charAt(0);
+                const isVIP = row === 'E' || row === 'F';
+                ticketSubtotal += state.selectedMovie.price + (isVIP ? 3.00 : 0.00);
+            });
+
+            // Snack Subtotal
+            let snackSubtotal = 0;
+            for (let key in state.snacks) {
+                snackSubtotal += state.snacks[key].qty * state.snacks[key].price;
+            }
+
+            // Fees & Discount
+            const convenienceFee = state.selectedSeats.length > 0 ? 2.50 : 0.00;
+            const grossTotal = ticketSubtotal + snackSubtotal + convenienceFee;
+            const discountVal = grossTotal * state.appliedDiscount;
+            const netTotal = Math.max(0, grossTotal - discountVal);
+
+            document.getElementById('summaryTicketPrice').innerText = `$${ticketSubtotal.toFixed(2)}`;
+            document.getElementById('summaryFee').innerText = `$${convenienceFee.toFixed(2)}`;
+            document.getElementById('summaryGrandTotal').innerText = `$${netTotal.toFixed(2)}`;
+
+            // Enable/Disable Checkout Button
+            const proceedBtn = document.getElementById('proceedToCheckoutBtn');
+            proceedBtn.disabled = state.selectedSeats.length === 0;
+        }
+
+        /* --- CHECKOUT MODAL LOGIC --- */
+        function openCheckoutModal() {
+            if (state.selectedSeats.length === 0) return;
+
+            // Compute prices for modal
+            let ticketSubtotal = 0;
+            state.selectedSeats.forEach(seatId => {
+                const row = seatId.charAt(0);
+                const isVIP = row === 'E' || row === 'F';
+                ticketSubtotal += state.selectedMovie.price + (isVIP ? 3.00 : 0.00);
+            });
+
+            let snackSubtotal = 0;
+            for (let key in state.snacks) {
+                snackSubtotal += state.snacks[key].qty * state.snacks[key].price;
+            }
+
+            const convenienceFee = 2.50;
+            const baseTotal = ticketSubtotal + snackSubtotal + convenienceFee;
+
+            document.getElementById('modalBasePrice').innerText = `$${baseTotal.toFixed(2)}`;
+            
+            if (state.appliedDiscount > 0) {
+                const discountVal = baseTotal * state.appliedDiscount;
+                document.getElementById('promoRow').classList.remove('hidden');
+                document.getElementById('promoAmount').innerText = `-$${discountVal.toFixed(2)}`;
+                document.getElementById('modalFinalPrice').innerText = `$${(baseTotal - discountVal).toFixed(2)}`;
+            } else {
+                document.getElementById('promoRow').classList.add('hidden');
+                document.getElementById('modalFinalPrice').innerText = `$${baseTotal.toFixed(2)}`;
+            }
+
+            document.getElementById('checkoutModal').classList.remove('hidden');
+        }
+
+        function closeCheckoutModal() {
+            document.getElementById('checkoutModal').classList.add('hidden');
+        }
+
+        function togglePaymentFields(type) {
+            document.getElementById('cardFields').classList.add('hidden');
+            document.getElementById('upiFields').classList.add('hidden');
+            document.getElementById('appleFields').classList.add('hidden');
+
+            if (type === 'card') document.getElementById('cardFields').classList.remove('hidden');
+            if (type === 'upi') document.getElementById('upiFields').classList.remove('hidden');
+            if (type === 'apple') document.getElementById('appleFields').classList.remove('hidden');
+        }
+
+        function applyPromo() {
+            const code = document.getElementById('promoCodeInput').value.trim().toUpperCase();
+            if (code === "CINE20") {
+                state.appliedDiscount = 0.20;
+                showToast("Promo Code CINE20 applied! 20% discount granted.", "success");
+                openCheckoutModal(); // Refresh modal pricing
+            } else if (code === "") {
+                showToast("Please enter a valid coupon code.", "error");
+            } else {
+                showToast("Invalid Promo Code. Try 'CINE20'", "error");
+            }
+        }
+
+        /* --- PAYMENT PROCESSING & TICKET CREATION --- */
+        function processPayment() {
+            // Validation
+            const paymentType = document.querySelector('input[name="paymentType"]:checked').value;
+            if (paymentType === 'card') {
+                const name = document.getElementById('cardName').value;
+                const num = document.getElementById('cardNumber').value;
+                if (!name || !num) {
+                    showToast("Please complete cardholder information.", "error");
+                    return;
+                }
+            }
+
+            closeCheckoutModal();
+
+            // Create Booking Record
+            const bookingId = "CW-" + Math.floor(100000 + Math.random() * 900000);
+            
+            // Format Snack Summary
+            let snackItems = [];
+            for (let key in state.snacks) {
+                if (state.snacks[key].qty > 0) {
+                    snackItems.push(`${state.snacks[key].qty}x ${state.snacks[key].name}`);
+                }
+            }
+            const snackString = snackItems.length > 0 ? snackItems.join(', ') : 'None';
+
+            const location = document.getElementById('locationSelect').value;
+
+            const newBooking = {
+                id: bookingId,
+                movieTitle: state.selectedMovie.title,
+                poster: state.selectedMovie.poster,
+                cinema: `CineWave IMAX, ${location}`,
+                dateTime: `${state.selectedDate} @ ${state.selectedShowtime}`,
+                seats: state.selectedSeats.join(', '),
+                snacks: snackString,
+                totalPaid: document.getElementById('modalFinalPrice').innerText,
+                dateCreated: new Date().toLocaleDateString()
+            };
+
+            state.userBookings.unshift(newBooking);
+            saveBookingsToStorage();
+            updateBookingBadge();
+
+            // Display Digital Ticket Pass Modal
+            openTicketModal(newBooking);
+            showToast("Payment Successful! Tickets confirmed.", "success");
+        }
+
+        /* Show Digital Ticket Pass Modal with QR Code */
+        function openTicketModal(booking) {
+            document.getElementById('ticketMovieTitle').innerText = booking.movieTitle;
+            document.getElementById('ticketBookingRef').innerText = `#${booking.id}`;
+            document.getElementById('ticketCinema').innerText = booking.cinema;
+            document.getElementById('ticketDateTime').innerText = booking.dateTime;
+            document.getElementById('ticketSeats').innerText = booking.seats;
+            document.getElementById('ticketSnacks').innerText = booking.snacks;
+
+            // Generate QR Code dynamically
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = "";
+            new QRCode(qrContainer, {
+                text: `CINEWAVE-TICKET-${booking.id}-${booking.seats}`,
+                width: 100,
+                height: 100,
+                colorDark : "#0f172a",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            document.getElementById('ticketModal').classList.remove('hidden');
+        }
+
+        function closeTicketModal() {
+            document.getElementById('ticketModal').classList.add('hidden');
+            navigateTo('bookings');
+        }
+
+        function printTicket() {
+            window.print();
+        }
+
+        /* --- MOVIE DETAILS OVERLAY MODAL --- */
+        function openMovieModal(movieId) {
+            const movie = MOVIES_DATA.find(m => m.id === movieId);
+            if (!movie) return;
+
+            const modalContent = document.getElementById('movieModalContent');
+            modalContent.innerHTML = `
+                <div class="relative h-64 bg-cover bg-center" style="background-image: url('${movie.banner}');">
+                    <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent"></div>
+                    <div class="absolute bottom-4 left-6 flex items-end space-x-4">
+                        <img src="${movie.poster}" class="w-20 h-28 rounded-lg border-2 border-slate-700 shadow-xl object-cover">
+                        <div class="space-y-1">
+                            <span class="px-2 py-0.5 bg-brand-600 text-white text-[10px] font-bold rounded">${movie.genre}</span>
+                            <h2 class="text-2xl font-black text-white">${movie.title}</h2>
+                            <p class="text-xs text-slate-300"><i class="fa-solid fa-star text-amber-400 mr-1"></i>${movie.rating}/10 • ${movie.duration}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6 space-y-4 text-xs text-slate-300">
+                    <p class="text-sm leading-relaxed text-slate-200">${movie.description}</p>
+                    <div class="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">
+                        <div>
+                            <span class="text-slate-500 uppercase block font-semibold text-[10px]">Director</span>
+                            <span class="text-white font-medium">${movie.director}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 uppercase block font-semibold text-[10px]">Cast</span>
+                            <span class="text-white font-medium">${movie.cast}</span>
+                        </div>
+                    </div>
+                    <div class="pt-4 flex justify-end space-x-3">
+                        <button onclick="closeMovieModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold">Close</button>
+                        <button onclick="closeMovieModal(); selectMovie(${movie.id});" class="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold shadow-lg shadow-brand-600/30">Book Tickets</button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('movieModal').classList.remove('hidden');
+        }
+
+        function closeMovieModal() {
+            document.getElementById('movieModal').classList.add('hidden');
+        }
+
+        /* --- MY BOOKINGS DASHBOARD LOGIC --- */
+        function renderUserBookings() {
+            const container = document.getElementById('myBookingsContainer');
+            container.innerHTML = "";
+
+            if (state.userBookings.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full py-16 text-center text-slate-500 space-y-3 bg-slate-900 border border-slate-800 rounded-3xl">
+                        <i class="fa-solid fa-ticket text-5xl text-slate-700"></i>
+                        <p class="text-base font-semibold text-slate-300">No Movie Bookings Yet</p>
+                        <p class="text-xs max-w-sm mx-auto">Explore our movie catalog and book your favorite seats in minutes!</p>
+                        <button onclick="navigateTo('movies')" class="px-5 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-bold transition inline-block">
+                            Browse Movies
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            state.userBookings.forEach((b, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row justify-between gap-4 shadow-lg relative overflow-hidden";
+                card.innerHTML = `
+                    <div class="flex space-x-4">
+                        <img src="${b.poster}" alt="${b.movieTitle}" class="w-20 h-28 object-cover rounded-xl border border-slate-700 shadow-md flex-shrink-0">
+                        <div class="space-y-1.5 text-xs">
+                            <span class="text-[10px] font-mono text-brand-400 bg-brand-500/10 px-2 py-0.5 rounded border border-brand-500/20">Ref: #${b.id}</span>
+                            <h3 class="text-base font-bold text-white">${b.movieTitle}</h3>
+                            <p class="text-slate-400"><i class="fa-solid fa-location-dot mr-1 text-slate-500"></i>${b.cinema}</p>
+                            <p class="text-slate-300"><i class="fa-regular fa-calendar mr-1 text-brand-500"></i>${b.dateTime}</p>
+                            <p class="text-white font-bold"><i class="fa-solid fa-couch mr-1 text-amber-400"></i>Seats: <span class="text-brand-400">${b.seats}</span></p>
+                        </div>
+                    </div>
+
+                    <div class="flex sm:flex-col justify-between items-end border-t sm:border-t-0 sm:border-l border-slate-800 pt-3 sm:pt-0 sm:pl-4">
+                        <div class="text-left sm:text-right">
+                            <span class="text-[10px] text-slate-500 block uppercase">Paid Total</span>
+                            <span class="text-lg font-black text-emerald-400">${b.totalPaid}</span>
+                        </div>
+                        <div class="flex sm:flex-col gap-2">
+                            <button onclick='viewBookingPass(${JSON.stringify(b)})' class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition flex items-center space-x-1">
+                                <i class="fa-solid fa-qrcode text-brand-400"></i>
+                                <span>Pass</span>
+                            </button>
+                            <button onclick="cancelBooking(${idx})" class="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl text-xs font-semibold transition">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function viewBookingPass(booking) {
+            openTicketModal(booking);
+        }
+
+        function cancelBooking(index) {
+            if (confirm("Are you sure you want to cancel this booking ticket?")) {
+                state.userBookings.splice(index, 1);
+                saveBookingsToStorage();
+                updateBookingBadge();
+                renderUserBookings();
+                showToast("Booking successfully cancelled and refunded.", "info");
+            }
+        }
+
+        function saveBookingsToStorage() {
+            localStorage.setItem('cinewave_bookings', JSON.stringify(state.userBookings));
+        }
+
+        function loadBookingsFromStorage() {
+            const stored = localStorage.getItem('cinewave_bookings');
+            if (stored) {
+                try {
+                    state.userBookings = JSON.parse(stored);
+                } catch (e) {
+                    state.userBookings = [];
+                }
+            }
+        }
+
+        function updateBookingBadge() {
+            const badge = document.getElementById('bookingBadge');
+            if (state.userBookings.length > 0) {
+                badge.innerText = state.userBookings.length;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        /* --- TOAST NOTIFICATIONS UTILITY --- */
+        function showToast(message, type = "info") {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            let bgBg = "bg-slate-800 border-slate-700 text-slate-200";
+            let icon = "fa-circle-info text-blue-400";
+
+            if (type === "success") {
+                bgBg = "bg-slate-900 border-emerald-500/50 text-emerald-300";
+                icon = "fa-circle-check text-emerald-400";
+            } else if (type === "error") {
+                bgBg = "bg-slate-900 border-rose-500/50 text-rose-300";
+                icon = "fa-circle-exclamation text-rose-400";
+            } else if (type === "warning") {
+                bgBg = "bg-slate-900 border-amber-500/50 text-amber-300";
+                icon = "fa-triangle-exclamation text-amber-400";
+            }
+
+            toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-2xl border shadow-2xl text-xs font-medium transform transition duration-300 translate-y-2 opacity-0 ${bgBg}`;
+            toast.innerHTML = `
+                <i class="fa-solid ${icon} text-base"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // Animate in
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            // Auto dismiss after 3.5s
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function toggleMobileSearch() {
+            const input = document.getElementById('searchInput');
+            input.focus();
+            input.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
